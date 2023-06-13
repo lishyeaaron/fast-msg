@@ -50,17 +50,20 @@ class EmailSender(object):
         msg.attach(MIMEText(self.content))  # 邮件正文的内容
         msg['Subject'] = self.title  # 邮件主题
         msg['From'] = self.username  # 发送者账号
+        print(self.recv)
         msg['To'] = ','.join(self.recv)  # 接收者账号列表
         # msg['Cc'] = ','.join(self.recv)  # 抄送者账号列表
         smtp = smtplib.SMTP_SSL(self.email_host, port=self.port)
         # 发送邮件服务器的对象
         smtp.login(self.username, self.passwd)
         try:
+
             smtp.sendmail(self.username, self.recv, msg.as_string())
         except Exception as e:
             r = False, str(e)
         else:
             r = True, '发送成功'
+        print('发送结果：')
         print(r)
         smtp.quit()
         return r
