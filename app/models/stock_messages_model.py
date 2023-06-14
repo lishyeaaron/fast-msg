@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime,Text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -11,7 +11,7 @@ class StockMessageModel(Base):
     unkey = Column(String(64), nullable=False, comment='去重值')
     content_type = Column(Integer, nullable=False, default=0, comment='内容类型')
     trade = Column(String(64), nullable=False, default='', comment='交易类型')
-    main_content = Column(String(255), nullable=False, default='', comment='主要内容')
+    main_content = Column(Text, nullable=True, default='', comment='主要内容')
     attached_content = Column(String(255), nullable=False, default='', comment='附加内容')
     stock_code = Column(String(10), nullable=False, default='', comment='股票代码')
     sec_id = Column(String(20), nullable=False, default='', comment='证券 ID')
@@ -27,7 +27,7 @@ class StockMessageModel(Base):
 
     @classmethod
     def update_or_insert(cls, db_session, data_dict):
-        item = db_session.query(cls).filter_by(userid=data_dict['unkey']).first()
+        item = db_session.query(cls).filter_by(unkey=data_dict['unkey']).first()
         if item:
             # 如果已存在，则更新相关字段
             for key, value in data_dict.items():

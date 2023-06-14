@@ -9,7 +9,7 @@ from app.models.stock_messages_model import StockMessageModel
 
 class HdyMsgSpider:
     def __init__(self):
-        self.keywords = ['CPO', '光模块', 'AMD', '英伟达']  # 关键字列表
+        self.keywords = ['CPO', '光模块', 'AMD', '英伟达', '公司']  # 关键字列表
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0',
             'Accept': 'application/json, text/plain, */*',
@@ -25,12 +25,13 @@ class HdyMsgSpider:
         }
         self.url = 'http://irm.cninfo.com.cn/newircs/index/search'
         self.email = [
-            '749951152@qq.com',
+            # '749951152@qq.com',
             # '410317001@qq.com',
             # 'lishiye112233@163.com'
         ]
         self.content_type = 1  # 互动易平台
         self.redis = Common.get_global_redis()
+        self.pool_key = RedisKey.MSG_POOL.format(self.content_type)
         self.logger = Common.get_app_logger('spider')
 
     @staticmethod
@@ -50,30 +51,16 @@ class HdyMsgSpider:
     def process_results(self, results):
         for result in results:
             if not result.get('attachedContent'):
-                print(result)
+                self.logger.info(f'attachedContent为空，不处理：{result}')
                 continue
             update_date = self.transform_timestamp_to_datetime(result['updateDate'])
             update_date = datetime.datetime.strptime(update_date, '%Y-%m-%d %H:%M:%S')
-            if (datetime.datetime.now() - update_date).days > 0.5:
-                print(f'更新时间超过24小时，不处理：{result}')
-                # continue
+            if (datetime.datetime.now() - update_date).days > 2:
+                self.logger.info(f'更新时间超过48小时，不处理：{result}')
+                continue
 
-            print(f'更新时间：{update_date}')
-
-            # msg = f"【{result['companyShortName']}】\n提问:{result['mainContent']}\n回答:{result['attachedContent']}\n更新时间:{update_date}"
-            msg = f"【{result['companyShortName']}】\n提问:{result['mainContent']}\n回答:{result['attachedContent']}"
-            # print(msg)
-            keyword = self.check_keywords(result['attachedContent'])
-            if keyword:
-                print(f'检测到关键字【{keyword}】')
-                print('Question:', result['mainContent'])
-                print('Answer:', result['attachedContent'])
-                print('updateDate:', self.transform_timestamp_to_datetime(result['updateDate']))
-                print('pubDate:', self.transform_timestamp_to_datetime(result['pubDate']))
-                print('companyShortName:', result['companyShortName'])
-
-                Common.send_email(f'【互动易】{keyword}相关消息提示', msg, self.email)
-                print('-----------------------------------')
+            self.logger.info(f'更新时间：{update_date}')
+            self.handle_msg(result)
 
     def check_keywords(self, answer):
         for keyword in self.keywords:
@@ -84,7 +71,7 @@ class HdyMsgSpider:
     def get_data(self):
         data = {
             'pageNo': '1',
-            'pageSize': '50',
+            'pageSize': '10',
             'searchTypes': '1,11',
             'highLight': 'true'
         }
@@ -92,37 +79,63 @@ class HdyMsgSpider:
         data = response.json()['results']
         return data
 
-    def handle_msg(self, msg, keyword):
-        content = f"【{msg['companyShortName']}】\n提问:{msg['mainContent']}\n回答:{msg['attachedContent']}"
-        # unkey 为唯一标识，用于去重，将self.content_type和msg['indexId'] 取16位
+    def check_and_add_msg(self, msg):
+        """
+        使用redis bitmap去重，如果已经存在，则返回1，否则返回0并写入
+        """
+        # 将消息转换为bitmap索引
+        index = int(msg) % 2 ** 32
+        # 检查索引是否存在
+        if self.redis.getbit(self.pool_key, index) == 1:
+            return 1
+        # 如果索引不存在，则将其写入bitmap并返回0
+        self.redis.setbit(self.pool_key, index, 1)
+        return 0
 
-        m = hashlib.md5()
-        m.update(f"{self.content_type}{msg['indexId']}".encode('utf-8'))
-        unkey = m.hexdigest()
+    def handle_msg(self, msg):
+        keyword = self.check_keywords(msg['attachedContent'])
+        if keyword:
+            self.logger.info(f'检测到关键字【{keyword}】')
+            self.logger.info(f"Question: {msg['mainContent']}")
+            self.logger.info(f"Answer: {msg['attachedContent']}")
+            self.logger.info(f"updateDate: {self.transform_timestamp_to_datetime(msg['updateDate'])}")
+            self.logger.info(f"pubDate:, {self.transform_timestamp_to_datetime(msg['pubDate'])}")
+            self.logger.info(f"companyShortName: {msg['companyShortName']}")
 
-        # 使用redis bitmap去重，如果已经存在，则返回1，否则返回0并写入
-        if self.redis.getbit(RedisKey.CNINFO_MSG, unkey):
-            return
-        self.redis.setbit(RedisKey.CNINFO_MSG, unkey, 1)
+            Common.send_email(f'【互动易】{keyword}相关消息提示', msg, self.email)
+            self.logger.info('-----------------------------------')
+            unkey = f"{self.content_type}_{msg['indexId']}"
 
+            # 使用redis bitmap去重，如果已经存在，则返回1，否则返回0并写入
+            if self.check_and_add_msg(unkey):
+                self.logger.info(f'消息已存在，不处理：{unkey}')
+                return
 
-        # self.redis.lpush('cninfo', content)
-        msg_item = {
-            'unkey': unkey,
-            'content_type': self.content_type,
-            'trade': msg['trade'],
-            'main_content': content,
-            'attached_content': '',
-            'stock_code': msg['stockCode'],
-            'sec_id': msg['secId'],
-            'company': msg['companyShortName'],
-            'board_type': msg['boardType'],
-            'key_word': keyword,
-            'update_date': msg['updateDate'],
-            'pub_date': msg['pubDate'],
-            'remind_status': 1
-        }
-        StockMessageModel.update_or_insert(msg_item)
+            msg_item = {
+                'unkey': unkey,
+                'content_type': self.content_type,
+                'trade': msg['trade'],
+                'main_content': f"【{msg['companyShortName']}】提问:{msg['mainContent']}回答:{msg['attachedContent']}".replace(
+                    '\n', ''),
+                'attached_content': '',
+                'stock_code': msg.get('stockCode', ''),
+                'sec_id': msg.get('secid', ''),
+                'company': msg['companyShortName'],
+                'board_type': msg['boardType'],
+                'key_word': keyword,
+                'update_date': self.transform_timestamp_to_datetime(msg['updateDate']),
+                'pub_date': self.transform_timestamp_to_datetime(msg['pubDate']),
+                'remind_status': 1
+            }
+            StockMessageModel.update_or_insert(Common.get_global_db_session(), msg_item)
+
+            # 发送邮件
+            email_content = f"【{msg['companyShortName']}】" \
+                            f"\n行业:{msg['trade']}" \
+                            f"\n提问:{msg['mainContent']}" \
+                            f"\n提问:{msg['mainContent']}" \
+                            f"\n回答:{msg['attachedContent']}"
+            Common.send_email(f'【互动易】{keyword}相关消息提示', msg, self.email)
 
 
 def main():

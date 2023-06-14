@@ -8,6 +8,7 @@ from retrying import retry
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from logging import handlers
 import logging
 from app.utils.storage import Storage
@@ -63,11 +64,9 @@ class Common:
                 conn = Common.MYSQL_ENGINE.connect()
                 conn.execute(select(1))  # 检查连接对象是否有效
             except DBAPIError:
-                print('数据库连接失败1')
                 Common.MYSQL_ENGINE.dispose()
                 Common.MYSQL_ENGINE = None
             except Exception:
-                print('数据库连接失败2')
                 Common.MYSQL_ENGINE = None
         else:
             db_url = 'mysql+pymysql://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4'
@@ -86,18 +85,22 @@ class Common:
                 conn = Common.MYSQL_ENGINE.connect()
                 print(conn.execute(select(1)))  # 检查连接对象是否有效
             except DBAPIError as e:
-                print(e)
-                print('数据库连接失败3')
+
                 Common.MYSQL_ENGINE.dispose()
                 Common.MYSQL_ENGINE = None
             except Exception as e:
-                print(e)
-                print('数据库连接失败4')
+
                 Common.MYSQL_ENGINE = None
 
         if Common.MYSQL_ENGINE is None:
             raise Exception('无法连接到数据库')
         return Common.MYSQL_ENGINE
+
+    @staticmethod
+    def get_global_db_session():
+        db = Common.get_global_db()
+        db_session = sessionmaker(bind=db)()
+        return db_session
 
     @staticmethod
     @retry(stop_max_attempt_number=5, wait_fixed=2)
