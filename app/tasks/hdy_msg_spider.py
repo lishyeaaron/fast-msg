@@ -1,10 +1,13 @@
 import requests
 import datetime
 import pytz
+import hashlib
 from app.common import Common
+from app.commons.redis_key import RedisKey
+from app.models.stock_messages_model import StockMessageModel
 
 
-class CninfoSpider:
+class HdyMsgSpider:
     def __init__(self):
         self.keywords = ['CPO', '光模块', 'AMD', '英伟达']  # 关键字列表
         self.headers = {
@@ -22,10 +25,13 @@ class CninfoSpider:
         }
         self.url = 'http://irm.cninfo.com.cn/newircs/index/search'
         self.email = [
-                      #'749951152@qq.com',
-                      #'410317001@qq.com',
-                      #'lishiye112233@163.com'
-                      ]
+            '749951152@qq.com',
+            # '410317001@qq.com',
+            # 'lishiye112233@163.com'
+        ]
+        self.content_type = 1  # 互动易平台
+        self.redis = Common.get_global_redis()
+        self.logger = Common.get_app_logger('spider')
 
     @staticmethod
     def transform_timestamp_to_datetime(timestamp):
@@ -44,30 +50,30 @@ class CninfoSpider:
     def process_results(self, results):
         for result in results:
             if not result.get('attachedContent'):
-                # print(result)
+                print(result)
                 continue
-            # 如果更新时间'updateDate': '1686640072000'，在24小时之前，就不处理
             update_date = self.transform_timestamp_to_datetime(result['updateDate'])
             update_date = datetime.datetime.strptime(update_date, '%Y-%m-%d %H:%M:%S')
             if (datetime.datetime.now() - update_date).days > 0.5:
                 print(f'更新时间超过24小时，不处理：{result}')
-                continue
-            else:
-                print(f'更新时间：{update_date}')
-            # print('Question:', result['mainContent'])
-            # print('Answer:', result['attachedContent'])
-            # print('updateDate:', self.transform_timestamp_to_datetime(result['updateDate']))
-            # print('pubDate:', self.transform_timestamp_to_datetime(result['pubDate']))
-            # print('companyShortName:', result['companyShortName'])
-            print('-----------------------------------')
-            msg = f"【{result['companyShortName']}】\n提问:{result['mainContent']}\n回答:{result['attachedContent']}\n更新时间:{update_date}"
+                # continue
+
+            print(f'更新时间：{update_date}')
+
+            # msg = f"【{result['companyShortName']}】\n提问:{result['mainContent']}\n回答:{result['attachedContent']}\n更新时间:{update_date}"
             msg = f"【{result['companyShortName']}】\n提问:{result['mainContent']}\n回答:{result['attachedContent']}"
-            #print(msg)
+            # print(msg)
             keyword = self.check_keywords(result['attachedContent'])
             if keyword:
                 print(f'检测到关键字【{keyword}】')
+                print('Question:', result['mainContent'])
+                print('Answer:', result['attachedContent'])
+                print('updateDate:', self.transform_timestamp_to_datetime(result['updateDate']))
+                print('pubDate:', self.transform_timestamp_to_datetime(result['pubDate']))
+                print('companyShortName:', result['companyShortName'])
 
                 Common.send_email(f'【互动易】{keyword}相关消息提示', msg, self.email)
+                print('-----------------------------------')
 
     def check_keywords(self, answer):
         for keyword in self.keywords:
@@ -77,7 +83,7 @@ class CninfoSpider:
 
     def get_data(self):
         data = {
-            'pageNo': '3',
+            'pageNo': '1',
             'pageSize': '50',
             'searchTypes': '1,11',
             'highLight': 'true'
@@ -86,9 +92,41 @@ class CninfoSpider:
         data = response.json()['results']
         return data
 
+    def handle_msg(self, msg, keyword):
+        content = f"【{msg['companyShortName']}】\n提问:{msg['mainContent']}\n回答:{msg['attachedContent']}"
+        # unkey 为唯一标识，用于去重，将self.content_type和msg['indexId'] 取16位
+
+        m = hashlib.md5()
+        m.update(f"{self.content_type}{msg['indexId']}".encode('utf-8'))
+        unkey = m.hexdigest()
+
+        # 使用redis bitmap去重，如果已经存在，则返回1，否则返回0并写入
+        if self.redis.getbit(RedisKey.CNINFO_MSG, unkey):
+            return
+        self.redis.setbit(RedisKey.CNINFO_MSG, unkey, 1)
+
+
+        # self.redis.lpush('cninfo', content)
+        msg_item = {
+            'unkey': unkey,
+            'content_type': self.content_type,
+            'trade': msg['trade'],
+            'main_content': content,
+            'attached_content': '',
+            'stock_code': msg['stockCode'],
+            'sec_id': msg['secId'],
+            'company': msg['companyShortName'],
+            'board_type': msg['boardType'],
+            'key_word': keyword,
+            'update_date': msg['updateDate'],
+            'pub_date': msg['pubDate'],
+            'remind_status': 1
+        }
+        StockMessageModel.update_or_insert(msg_item)
+
 
 def main():
-    spider = CninfoSpider()
+    spider = HdyMsgSpider()
     r = spider.get_data()
     spider.process_results(r)
 
