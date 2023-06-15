@@ -1,7 +1,8 @@
+import time
+
 import requests
 import datetime
 import pytz
-import hashlib
 from app.common import Common
 from app.commons.redis_key import RedisKey
 from app.models.stock_messages_model import StockMessageModel
@@ -33,6 +34,15 @@ class HdyMsgSpider:
         self.redis = Common.get_global_redis()
         self.pool_key = RedisKey.MSG_POOL.format(self.content_type)
         self.logger = Common.get_app_logger('spider')
+        self.counts = {
+            'total': 0,  # 总数
+            'no_answer': 0,  # 未回复
+            'expired': 0,  # 过期
+            'target_amount': 0,  # 命中关键字总数
+            'target_new': 0,  # 命中关键字新消息数
+            'repeat_redis': 0,  # 重复消息数redis记录
+            'repeat_db': 0,  # 重复消息数db记录
+        }
 
     @staticmethod
     def transform_timestamp_to_datetime(timestamp):
@@ -51,16 +61,25 @@ class HdyMsgSpider:
     def process_results(self, results):
         for result in results:
             if not result.get('attachedContent'):
-                self.logger.info(f'attachedContent为空，不处理：{result}')
+                self.logger.debug(f'attachedContent为空，不处理：{result}')
+                self.counts['no_answer'] += 1
                 continue
             update_date = self.transform_timestamp_to_datetime(result['updateDate'])
             update_date = datetime.datetime.strptime(update_date, '%Y-%m-%d %H:%M:%S')
-            if (datetime.datetime.now() - update_date).days > 2:
-                self.logger.info(f'更新时间超过48小时，不处理：{result}')
+            if (datetime.datetime.now() - update_date).days >= 1:
+                self.counts['expired'] += 1
+                self.logger.debug(f'更新时间超过48小时，不处理：{result}')
                 continue
 
-            self.logger.info(f'更新时间：{update_date}')
+            self.logger.debug(f'更新时间：{update_date}')
             self.handle_msg(result)
+        self.logger.info(f'总数：{self.counts["total"]}')
+        self.logger.info(f'未回复：{self.counts["no_answer"]}')
+        self.logger.info(f'过期：{self.counts["expired"]}')
+        self.logger.info(f'命中关键字总数：{self.counts["target_amount"]}')
+        self.logger.info(f'命中关键字新消息数：{self.counts["target_new"]}')
+        self.logger.info(f'重复消息数redis记录：{self.counts["repeat_redis"]}')
+        self.logger.info(f'重复消息数db记录：{self.counts["repeat_db"]}')
 
     def check_keywords(self, answer):
         for keyword in self.keywords:
@@ -71,12 +90,13 @@ class HdyMsgSpider:
     def get_data(self):
         data = {
             'pageNo': '1',
-            'pageSize': '10',
+            'pageSize': '100',
             'searchTypes': '1,11',
             'highLight': 'true'
         }
         response = requests.post(self.url, headers=self.headers, data=data)
         data = response.json()['results']
+        self.counts['total'] = len(data)
         return data
 
     def check_and_add_msg(self, msg):
@@ -87,61 +107,69 @@ class HdyMsgSpider:
         index = int(msg) % 2 ** 32
         # 检查索引是否存在
         if self.redis.getbit(self.pool_key, index) == 1:
+            self.logger.debug(f'redis中消息已存在，不处理：{msg}')
             return 1
         # 如果索引不存在，则将其写入bitmap并返回0
         self.redis.setbit(self.pool_key, index, 1)
+        # 设置过期时间
+        self.redis.expire(self.pool_key, 60 * 60 * 24 * 7)
         return 0
 
     def handle_msg(self, msg):
         keyword = self.check_keywords(msg['attachedContent'])
         if keyword:
-            self.logger.info(f'检测到关键字【{keyword}】')
-            self.logger.info(f"Question: {msg['mainContent']}")
-            self.logger.info(f"Answer: {msg['attachedContent']}")
-            self.logger.info(f"updateDate: {self.transform_timestamp_to_datetime(msg['updateDate'])}")
-            self.logger.info(f"pubDate:, {self.transform_timestamp_to_datetime(msg['pubDate'])}")
-            self.logger.info(f"companyShortName: {msg['companyShortName']}")
+            self.counts['target_amount'] += 1
 
-            Common.send_email(f'【互动易】{keyword}相关消息提示', msg, self.email)
-            self.logger.info('-----------------------------------')
             unkey = f"{self.content_type}_{msg['indexId']}"
 
             # 使用redis bitmap去重，如果已经存在，则返回1，否则返回0并写入
-            if self.check_and_add_msg(unkey):
-                self.logger.info(f'消息已存在，不处理：{unkey}')
-                return
+            if not self.check_and_add_msg(unkey):
+                self.counts['repeat_redis'] += 1
+                db_session = Common.get_global_db_session()
+                item = StockMessageModel.find_by_unkey(db_session, unkey)
+                if item:
+                    self.counts['repeat_db'] += 1
+                    self.logger.info(f'数据库消息已存在，不处理：{unkey}')
+                    return
+                self.logger.debug(f'检测到关键字【{keyword}】')
+                self.logger.debug(f"Question: {msg['mainContent']}")
+                self.logger.debug(f"Answer: {msg['attachedContent']}")
+                self.logger.debug(f"updateDate: {self.transform_timestamp_to_datetime(msg['updateDate'])}")
+                self.logger.debug(f"pubDate:, {self.transform_timestamp_to_datetime(msg['pubDate'])}")
+                self.logger.debug(f"companyShortName: {msg['companyShortName']}")
+                self.logger.debug('-----------------------------------')
+                self.counts['target_new'] += 1
+                msg_item = {
+                    'unkey': unkey,
+                    'content_type': self.content_type,
+                    'trade': msg['trade'],
+                    'main_content': f"【{msg['companyShortName']}】提问:{msg['mainContent']}回答:{msg['attachedContent']}".replace(
+                        '\n', ''),
+                    'attached_content': '',
+                    'stock_code': msg.get('stockCode', ''),
+                    'sec_id': msg.get('secid', ''),
+                    'company': msg['companyShortName'],
+                    'board_type': msg['boardType'],
+                    'key_word': keyword,
+                    'update_date': self.transform_timestamp_to_datetime(msg['updateDate']),
+                    'pub_date': self.transform_timestamp_to_datetime(msg['pubDate']),
+                    'remind_status': 1
+                }
+                StockMessageModel.update_or_insert(db_session, msg_item)
 
-            msg_item = {
-                'unkey': unkey,
-                'content_type': self.content_type,
-                'trade': msg['trade'],
-                'main_content': f"【{msg['companyShortName']}】提问:{msg['mainContent']}回答:{msg['attachedContent']}".replace(
-                    '\n', ''),
-                'attached_content': '',
-                'stock_code': msg.get('stockCode', ''),
-                'sec_id': msg.get('secid', ''),
-                'company': msg['companyShortName'],
-                'board_type': msg['boardType'],
-                'key_word': keyword,
-                'update_date': self.transform_timestamp_to_datetime(msg['updateDate']),
-                'pub_date': self.transform_timestamp_to_datetime(msg['pubDate']),
-                'remind_status': 1
-            }
-            StockMessageModel.update_or_insert(Common.get_global_db_session(), msg_item)
-
-            # 发送邮件
-            email_content = f"【{msg['companyShortName']}】" \
-                            f"\n行业:{msg['trade']}" \
-                            f"\n提问:{msg['mainContent']}" \
-                            f"\n提问:{msg['mainContent']}" \
-                            f"\n回答:{msg['attachedContent']}"
-            Common.send_email(f'【互动易】{keyword}相关消息提示', msg, self.email)
+                # 发送邮件
+                email_content = f"【{msg['companyShortName']}】" \
+                                f"\n行业:{msg['trade']}" \
+                                f"\n提问:{msg['mainContent']}" \
+                                f"\n回答:{msg['attachedContent']}"
+                Common.send_email(f'【互动易】《{keyword}》相关消息提示', email_content, self.email)
 
 
 def main():
     spider = HdyMsgSpider()
     r = spider.get_data()
     spider.process_results(r)
+    print(spider.counts)
 
 
 if __name__ == '__main__':

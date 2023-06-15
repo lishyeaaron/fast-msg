@@ -8,7 +8,7 @@ import base64
 
 class EmailSender(object):
     def __init__(self, username, passwd, recv, title, content, file=None, email_host='smtp.163.com', port=25):
-        """
+        """t
         :param username: 用户名
         :param passwd: 密码 此处开启了smtp之后的密码是授权码
         :param recv: 收件人，多个要传list ['a@qq.com','b@qq.com]

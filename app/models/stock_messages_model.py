@@ -38,3 +38,7 @@ class StockMessageModel(Base):
             db_session.add(item)
         db_session.commit()
         return item
+
+    @classmethod
+    def find_by_unkey(cls, db_session, unkey):
+        return db_session.query(cls).filter_by(unkey=unkey).first()
