@@ -127,11 +127,11 @@ class Common:
 
     @staticmethod
     def get_app_logger(app_name='app'):
-        if Common.APP_LOG is dict and app_name in Common.APP_LOG.keys():
+        if isinstance(Common.APP_LOG, dict) and app_name in Common.APP_LOG.keys():
             return Common.APP_LOG[app_name]
         logger = logging.getLogger(app_name)
         logger.setLevel(logging.INFO)
-        log_path = f"/var/log/ops_hub"
+        log_path = f"/var/log/fast-msg"
         Storage.check_or_mkdir(log_path)
         log_file = f'{log_path}/{app_name}.log'
         fh = logging.handlers.TimedRotatingFileHandler(log_file, when='D', interval=1, backupCount=7, encoding='utf-8')
@@ -152,7 +152,7 @@ class Common:
             return Common.APP_LOG
         logger = logging.getLogger('sys')
         logger.setLevel(logging.INFO)
-        log_path = f"/var/log/ops_hub"
+        log_path = f"/var/log/fast-msg"
         Storage.check_or_mkdir(log_path)
         log_file = f'{log_path}/sys.log'
         fh = logging.handlers.TimedRotatingFileHandler(log_file, when='D', interval=1, backupCount=7, encoding='utf-8')
