@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime,Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -20,7 +20,7 @@ class StockMessageModel(Base):
     key_word = Column(String(64), nullable=False, default='', comment='关键字')
     update_date = Column(DateTime, comment='更新时间')
     pub_date = Column(DateTime, comment='发布时间')
-    remind_status = Column(Boolean, nullable=False, default=False, comment='提醒状态1已提醒0未提醒')
+    remind_status = Column(Integer, nullable=False, default=0, comment='提醒状态1已提醒0未提醒')
 
     def __repr__(self):
         return f"<StockMessageModel(id={self.id}, main_content='{self.main_content}', stock_code='{self.stock_code}')>"
@@ -42,3 +42,7 @@ class StockMessageModel(Base):
     @classmethod
     def find_by_unkey(cls, db_session, unkey):
         return db_session.query(cls).filter_by(unkey=unkey).first()
+
+    @classmethod
+    def get_unreminded_msg(cls, db_session, num=10):
+        return db_session.query(cls).filter_by(remind_status=0).limit(num).all()

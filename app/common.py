@@ -25,6 +25,7 @@ class Common:
     DINGDING_CONFIG = 'DINGDING_CONFIG'
     WECHAT_CONFIG = 'WECHAT_CONFIG'
     OPENAI_CONFIG = 'OPENAI_CONFIG'
+    STOCK_CONFIG = 'STOCK_CONFIG'
     DING_TODO_APP_CONFIG = 'DING_TODO_APP_CONFIG'
     REDIS_CONNECTION = None
     MYSQL_ENGINE = None
@@ -130,7 +131,7 @@ class Common:
         if isinstance(Common.APP_LOG, dict) and app_name in Common.APP_LOG.keys():
             return Common.APP_LOG[app_name]
         logger = logging.getLogger(app_name)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
         log_path = f"/var/log/fast-msg"
         Storage.check_or_mkdir(log_path)
         log_file = f'{log_path}/{app_name}.log'
@@ -138,6 +139,7 @@ class Common:
         fh.setLevel(logging.DEBUG)
         ch = logging.StreamHandler()
         ch.setLevel(logging.INFO)
+        ch.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         fh.setFormatter(formatter)
         ch.setFormatter(formatter)
@@ -189,7 +191,7 @@ class Common:
         m.send_mail()
 
     @staticmethod
-    def send_ding_msg(content, msg_type='WARN'):
+    def send_ding_msg(content, msg_type='MSG'):
         """
         发送钉钉消息
         :param content:
@@ -199,10 +201,10 @@ class Common:
         print(f'发送钉钉消息{content} {msg_type}')
         # 通知钉钉 机器人
         url = Common.get_config(Common.DINGDING_CONFIG, 'URL')
-        if msg_type == 'WARN':
-            msg_header = '【预警】'
-            access_token = Common.get_config(Common.DINGDING_CONFIG, 'WARN_ACCESS_TOKEN')
-        elif msg_type == 'ALARM':
+        if msg_type == 'MSG':
+            msg_header = '【资讯】'
+            access_token = Common.get_config(Common.DINGDING_CONFIG, 'MSG_ACCESS_TOKEN')
+        elif msg_type == 'ALERT':
             msg_header = '【告警】'
             access_token = Common.get_config(Common.DINGDING_CONFIG, 'ALARM_ACCESS_TOKEN')
         else:
@@ -226,13 +228,16 @@ class Common:
             response = requests.post(url, headers={'Content-Type': 'application/json'}, data=json_msg)
 
             # Check the response status code
-            if response.status_code == 200:
+            if response.status_code == 200 and response.json()['errcode'] == 0:
                 print('Message sent successfully!')
                 print(response.text)
+                return True
             else:
                 print(f'Error {response.status_code}: {response.text}')
+                return False
         except Exception as e:
             print(e)
+        return False
 
 
 if __name__ == "__main__":

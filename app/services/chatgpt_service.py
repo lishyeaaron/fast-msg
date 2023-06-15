@@ -47,51 +47,30 @@ class ChatGptService:
         return response_text
 
 
-class SqlGpt(ChatGptService):
-    @staticmethod
-    def transform_mongo_to_postgresql(mongo_sql, postgresql_table_info, strict=True):
-        # 如果mongo_sql中不中不包含常见的mongo语句关键字，则直接返回非相关问题不予回答
-        not_related_keywords = 'NOT_RELATED_KEYWORDS'
-        if not SqlGpt.process_mongo_query:
-            return not_related_keywords
-        # 如果mongo_sql和postgresql_table_info加起来的长度小于10或者大于1000，则直接返回非相关问题不予回答
-        if len(mongo_sql) + len(postgresql_table_info) < 10 or len(mongo_sql) + len(postgresql_table_info) > 1000:
-            return not_related_keywords
+prompts = {
+    '扮演股票分析师': "请你扮演以为中国A股金融股票分析师，根据以下一段投资者和企业的问答，来给我买入或者卖出的建议",
+    '严格遵守规则': "请你根据以上,请严格记住不要反问，返回一个#*#x*#*字符串",
+}
 
+
+class StockGpt(ChatGptService):
+    @staticmethod
+    def get_answer(stock_msg):
         msg = [
             {"role": "user",
-             "content": f"""你扮演一个输入mongo语句和postgresql信息提示，输出postgresql语句的角色，以下为mongo语句或者提示{mongo_sql}"""},
-            {"role": "user",
-             "content": f"""以下为postgresql中的和mongo相关关联的表sql语句或者提示:{postgresql_table_info}"""},
+             "content": f"""请你扮演以为中国A股金融股票分析师，根据以下一段投资者和企业的问答，来给我买入或者卖出的建议
+             {stock_msg}"""},
         ]
 
-        if strict:
-            msg.append({"role": "user", "content": f"""请你根据以上的postgresql中的表信息(如果有的话)，将mongo中的语句转化为postgresql中的语句,请严格记住
-               ，不要反问，你返回的信息中不要包含除了sql语句之外的任何信息，否则会被判定为错误答案，你给的回答应该是一个使用#*#开头*#*结尾的sql语句，除此之外不要包含任何字符串，请严格遵守
-               ，如果给定信息和mongo和postgresql无关，返回一个#*#非相关问题不予回答*#*字符串
-               """})
-            r = SqlGpt.query(msg)
-            # 使用正则提取#*#开头*#*结尾的sql语句
-            r = re.findall(r"#\*#(.*)\*#*", r)
+        # 使用正则提取#*#开头*#*结尾的sql语句
+        # r = re.findall(r"#\*#(.*)\*#*", r)
 
-        else:
-            msg.append({"role": "user", "content": f"""请你根据以上的postgresql中的表信息(如果有的话)，将mongo中的语句转化为postgresql中的语句,请严格记住
-               ，不要反问，返回一个#*#{not_related_keywords}*#*字符串
-               """})
-            r = ChatGptService.query(msg)
-        logger.info(
-            f"transform_mongo_to_postgresql:mongo_sql:{mongo_sql},postgresql_table_info:{postgresql_table_info},answer:{r}")
+        r = ChatGptService.query(msg)
         return r
 
 
-    @staticmethod
-    def process_mongo_query(mongo_sql):
-        common_keywords = ["find", "insert", "update", "delete", "aggregate", "sort", "distinct",
-                           "mongo", "db"]
-        lowercase_sql = mongo_sql.lower()
-        if any(keyword in lowercase_sql for keyword in common_keywords):
-            # 包含常见的MongoDB语句关键字
-            return True
-        else:
-            # 不包含常见的MongoDB语句关键字，返回非相关问题不予回答
-            return False
+if __name__ == '__main__':
+    r = StockGpt.get_answer("""
+    提问:您好，公司代销及自产光模块产品销量如何？
+    回答:投资者您好，感谢您对公司的关心与支持！公司下属子公司有工控光模块相关的研发及产品，目前市场占有率低，推广进程较为缓慢。""")
+    print(r)

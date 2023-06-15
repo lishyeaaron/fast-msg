@@ -27,11 +27,7 @@ class HdyMsgSpider:
             'Referer': 'http://irm.cninfo.com.cn/views/interactiveAnswer',
         }
         self.url = 'http://irm.cninfo.com.cn/newircs/index/search'
-        self.email = [
-            '749951152@qq.com',
-            '410317001@qq.com',
-            # 'lishiye112233@163.com'
-        ]
+
         self.content_type = 1  # 互动易平台
         self.redis = Common.get_global_redis()
         self.pool_key = RedisKey.MSG_POOL + str(self.content_type)
@@ -149,7 +145,7 @@ class HdyMsgSpider:
             pipeline.zremrangebyrank(self.pool_key, 0, -2000)
 
         # 设置过期时间
-        pipeline.expire(self.pool_key, 60 * 60 * 24 * 7)
+        pipeline.expire(self.pool_key, 60 * 60 * 24 * 3)
 
         # 执行事务
         pipeline.execute()
@@ -185,9 +181,8 @@ class HdyMsgSpider:
                 'unkey': unkey,
                 'content_type': self.content_type,
                 'trade': msg['trade'],
-                'main_content': f"【{msg['companyShortName']}】提问:{msg['mainContent']}回答:{msg['attachedContent']}".replace(
-                    '\n', ''),
-                'attached_content': '',
+                'main_content': msg['mainContent'],
+                'attached_content': msg['attachedContent'],
                 'stock_code': msg.get('stockCode', ''),
                 'sec_id': msg.get('secid', ''),
                 'company': msg['companyShortName'],
@@ -195,16 +190,9 @@ class HdyMsgSpider:
                 'key_word': keyword,
                 'update_date': self.transform_timestamp_to_datetime(msg['updateDate']),
                 'pub_date': self.transform_timestamp_to_datetime(msg['pubDate']),
-                'remind_status': 1
+                'remind_status': 0
             }
             StockMessageModel.update_or_insert(db_session, msg_item)
-            trade = msg['trade'].replace('\'', '')
-            # 发送邮件
-            email_content = f"【{msg['companyShortName']}】股票代码 {msg['stockCode']}" \
-                            f"\n行业:{trade}" \
-                            f"\n提问:{msg['mainContent']}" \
-                            f"\n回答:{msg['attachedContent']}"
-            Common.send_email(f'【互动易】《{keyword}》相关消息提示', email_content, self.email)
 
 
 if __name__ == '__main__':
