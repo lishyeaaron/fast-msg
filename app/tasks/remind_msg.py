@@ -11,9 +11,9 @@ for msg in msgs:
         {'remind_status': 2})
     db_session.commit()
     try:
-        msg_content = f"【{msg.key_word}】【{msg.company}】【{msg.trade}】【代码{msg.stock_code}】" \
+        msg_content = f"【关键词:{msg.key_word}】【{msg.company}】【{msg.trade}】【代码{msg.stock_code}】" \
                       f"\n提问:{msg.main_content}" \
-                      f"\n回答:{msg.attached_content}"
+                      f"\n回答:{msg.attached_content}-信息来源:互动易"
         time.sleep(5)
         r = Common.send_ding_msg(msg_content)
         if r:
