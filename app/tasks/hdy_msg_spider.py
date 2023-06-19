@@ -86,7 +86,7 @@ class HdyMsgSpider:
             'pageSize': '50',
             'searchTypes': '1,11',
         }
-        for i in range(1, 40):
+        for i in range(1, 20):
             params['pageNo'] = str(i)
             response = requests.post(self.url, headers=self.headers, data=params)
 
