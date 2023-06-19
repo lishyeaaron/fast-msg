@@ -72,7 +72,6 @@ class HdyMsgSpider:
                 self.logger.debug(f'更新时间超过48小时，不处理：{result}')
                 continue
 
-            self.logger.debug(f'更新时间：{update_date}')
             self.handle_msg(result)
 
     def check_keywords(self, answer):
@@ -87,7 +86,7 @@ class HdyMsgSpider:
             'pageSize': '50',
             'searchTypes': '1,11',
         }
-        for i in range(1, 20):
+        for i in range(1, 40):
             params['pageNo'] = str(i)
             response = requests.post(self.url, headers=self.headers, data=params)
 
@@ -200,3 +199,4 @@ if __name__ == '__main__':
         spider = HdyMsgSpider()
         spider.run()
         time.sleep(300)
+

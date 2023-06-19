@@ -30,7 +30,7 @@ if __name__ == "__main__":
             f.write(str(os.getpid()))
 
     parser = argparse.ArgumentParser(description="Start the FastAPI application.")
-    parser.add_argument("--port", type=int, default=8000, help="Port number to run the application on")
+    parser.add_argument("--port", type=int, default=8080, help="Port number to run the application on")
     args = parser.parse_args()
 
     main(args.port)
