@@ -1,7 +1,7 @@
 #!/bin/bash
 
 mkdir  -p /var/log/fast-msg
-ENV_DIR="/www/fast-msg"
+ENV_DIR="/www/env/fast-msg"
 REQUIREMENTS_FILE="requirements.txt"
 MAIN_SCRIPT="main.py"
 

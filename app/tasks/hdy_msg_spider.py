@@ -31,7 +31,10 @@ class HdyMsgSpider:
         self.content_type = 1  # 互动易平台
         self.redis = Common.get_global_redis()
         keywords = self.redis.get(RedisKey.KEYWORDS)
-        self.keywords = keywords.decode('utf-8').split(',') if keywords else []
+        self.keywords = keywords.split(',')
+        if not self.keywords:
+            logger.error('关键字为空')
+            raise ValueError('关键字为空')
         # self.keywords = ['CPO', '光模块', 'AMD', '英伟达', '沙特']  # 关键字列表
         self.pool_key = RedisKey.MSG_POOL + str(self.content_type)
         self.logger = logger

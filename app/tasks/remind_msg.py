@@ -14,11 +14,12 @@ def remind_msg():
             {'remind_status': 2})
         db_session.commit()
 
-        deny_li = ["暂无", "未涉及", "目前无", "", "不涉及", "但暂未", "但无", "没有涉及", "未与", '尚未', '暂未',
+        deny_li = ["暂无", "未涉及", "目前无", "不涉及", "但暂未", "但无", "没有涉及", "未与", '尚未', '暂未',
                    '目前没有'
-                   '不直接']
+                   '不直接'
+                   ]
         if any(i in msg.attached_content for i in deny_li):
-            logger.info(f"不发送消息:{msg.id},内容为否定回复")
+            logger.info(f"不发送消息:{msg.id},内容为否定回复,内容为:{msg.attached_content},否定词为:{deny_li}")
             db_session.query(StockMessageModel).filter_by(id=msg.id).update(
                 {'remind_status': 3})
             db_session.commit()

@@ -58,11 +58,11 @@ def query_keyword(question, conversation_id=None):
 
     keywords = redis.get(RedisKey.KEYWORDS)
     logger.info(f'keywords:{keywords}')
-    return f"已经更新关键词列表为:{keywords}"
+    return f"最新关键词列表为:{keywords}"
 
 
 @router.post("/api/chat")
-async def task_chat(request: Request):
+async def chat(request: Request):
     """
     聊天创建任务
     :param request:
@@ -82,4 +82,5 @@ async def task_chat(request: Request):
         f"open_conversation_id: {open_conversation_id}, at_users: {at_users}, user_id: {user_id},robot_code: {robot_code}, content: {content}")
     ding_api = DingService()
     ding_api.send_group_msg(result, open_conversation_id=open_conversation_id, robot_code=robot_code)
+    logger.info(f"send_group_msg result: {result}")
     return {"message": "ok"}

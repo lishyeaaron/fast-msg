@@ -30,10 +30,10 @@ def remind_task():
 
 def run_schedule():
     # 在6点到23点之间，每隔n分钟执行一次
-    # schedule.every(3).minutes.do(hdy_task)
+    schedule.every(5).minutes.do(hdy_task)
 
     # 在6点到23点之间每n分钟执行消息提醒
-    # schedule.every(3).minutes.do(remind_task)
+    schedule.every(5).minutes.do(remind_task)
 
     while True:
         time.sleep(3)
