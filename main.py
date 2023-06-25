@@ -14,20 +14,8 @@ def main(port):
 
 
 if __name__ == "__main__":
-    # 查看当前文件夹下是否存在app.pid文件如果app.pid文件存在，且linux系统中存在该pid说明程序已经启动，则打印pid并提示程序已经启动如果app.
-    # pid文件不存在，则说明程序未启动，则将当前进程号写入(覆盖)app.pid文件中
-    if os.path.exists("app.pid"):
-        with open("app.pid", "r") as f:
-            pid = f.read()
-        if os.path.exists(f"/proc/{pid}"):
-            print(f"程序已经启动，pid为{pid}")
-            exit(0)
-        else:
-            with open("app.pid", "w") as f:
-                f.write(str(os.getpid()))
-    else:
-        with open("app.pid", "w") as f:
-            f.write(str(os.getpid()))
+    # 把占用8080端口的进程杀掉
+    os.system("kill -9 $(lsof -i:8080 -t)")
 
     parser = argparse.ArgumentParser(description="Start the FastAPI application.")
     parser.add_argument("--port", type=int, default=8080, help="Port number to run the application on")
