@@ -83,6 +83,3 @@ async def task_chat(request: Request):
     ding_api = DingService()
     ding_api.send_group_msg(result, open_conversation_id=open_conversation_id, robot_code=robot_code)
     return {"message": "ok"}
-
-
-query_keyword(f"修改关键词为AMD,英伟达,沙特")

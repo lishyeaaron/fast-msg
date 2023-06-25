@@ -1,7 +1,7 @@
 #!/bin/bash
 
-mkdir  -p /var/log/ops_hub
-ENV_DIR="/www/ops_hub_env"
+mkdir  -p /var/log/fast-msg
+ENV_DIR="/www/fast-msg"
 REQUIREMENTS_FILE="requirements.txt"
 MAIN_SCRIPT="main.py"
 
