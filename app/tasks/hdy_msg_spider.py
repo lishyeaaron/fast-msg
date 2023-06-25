@@ -12,7 +12,7 @@ logger = Common.get_app_logger('spider')
 
 class HdyMsgSpider:
     def __init__(self):
-        self.keywords = ['CPO', '光模块', 'AMD', '英伟达', '沙特']  # 关键字列表
+
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0',
             'Accept': 'application/json, text/plain, */*',
@@ -30,6 +30,9 @@ class HdyMsgSpider:
 
         self.content_type = 1  # 互动易平台
         self.redis = Common.get_global_redis()
+        keywords = self.redis.get(RedisKey.KEYWORDS)
+        self.keywords = keywords.decode('utf-8').split(',') if keywords else []
+        # self.keywords = ['CPO', '光模块', 'AMD', '英伟达', '沙特']  # 关键字列表
         self.pool_key = RedisKey.MSG_POOL + str(self.content_type)
         self.logger = logger
         self.counts = {

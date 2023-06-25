@@ -88,3 +88,4 @@ uvicorn==0.22.0
 vine==5.0.0
 wcwidth==0.2.6
 yarl==1.9.2
+alibabacloud_dingtalk==2.0.21

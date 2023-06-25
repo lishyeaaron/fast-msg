@@ -24,3 +24,14 @@ CREATE TABLE IF NOT EXISTS stock_messages (
     index unkey (unkey)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='股票消息信息表';
 """
+"""
+DROP TABLE IF EXISTS `stock_messages`;
+CREATE TABLE msg_configs (
+    id INT AUTO_INCREMENT PRIMARY KEY,  -- 关键词 ID，自增主键
+		config_name VARCHAR(64) NOT NULL DEFAULT '''', -- 配置名
+    content VARCHAR(255) NOT NULL DEFAULT '''',  -- 内容，最大长度为 64，不能为空
+    is_enable TINYINT(1) NOT NULL DEFAULT 1 , -- 是否启用，取值为 0 或 1，0 表示禁用，1 表示启用
+		UNIQUE (config_name)
+);
+
+"""

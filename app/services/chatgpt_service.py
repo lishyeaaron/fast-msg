@@ -70,7 +70,4 @@ class StockGpt(ChatGptService):
 
 
 if __name__ == '__main__':
-    r = StockGpt.get_answer("""
-    提问:您好，公司代销及自产光模块产品销量如何？
-    回答:投资者您好，感谢您对公司的关心与支持！公司下属子公司有工控光模块相关的研发及产品，目前市场占有率低，推广进程较为缓慢。""")
-    print(r)
+    ...
