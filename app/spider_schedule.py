@@ -14,27 +14,13 @@ def hdy_task():
     :return:
     """
     current_hour = time.localtime().tm_hour
-    if 7 <= current_hour <= 23:
+    if 5 <= current_hour <= 23:
         HdyMsgSpider().run()
-
-
-def remind_task():
-    """
-    消息提醒定时任务
-    :return:
-    """
-    current_hour = time.localtime().tm_hour
-
-    if 7 <= current_hour <= 23:
-        remind_msg()
 
 
 def run_schedule():
     # 每隔n分钟执行一次
     schedule.every(3).minutes.do(hdy_task)
-
-    # 在6点到23点之间每n分钟执行消息提醒
-    schedule.every(3).minutes.do(remind_task)
 
     while True:
         time.sleep(3)

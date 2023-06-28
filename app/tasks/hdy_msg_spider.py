@@ -5,6 +5,7 @@ import datetime
 import pytz
 from app.common import Common
 from app.commons.redis_key import RedisKey
+from app.commons.const import UserAgentList
 from app.models.stock_messages_model import StockMessageModel
 
 logger = Common.get_app_logger('spider')
@@ -13,8 +14,9 @@ logger = Common.get_app_logger('spider')
 class HdyMsgSpider:
     def __init__(self):
 
+        self.agent = random.choice(UserAgentList)
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0',
+            'User-Agent': self.agent,
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
             'Accept-Encoding': 'gzip, deflate',
@@ -26,6 +28,7 @@ class HdyMsgSpider:
             'Connection': 'keep-alive',
             'Referer': 'http://irm.cninfo.com.cn/views/interactiveAnswer',
         }
+
         self.url = 'http://irm.cninfo.com.cn/newircs/index/search'
 
         self.content_type = 1  # 互动易平台
@@ -73,7 +76,7 @@ class HdyMsgSpider:
             update_date = self.transform_timestamp_to_datetime(result['updateDate'])
             update_date = datetime.datetime.strptime(update_date, '%Y-%m-%d %H:%M:%S')
             # print(f'日期差距为{(datetime.datetime.now() - update_date).days}')
-            if (datetime.datetime.now() - update_date).days >= 1:
+            if (datetime.datetime.now() - update_date).days >= 2:
                 self.counts['expired'] += 1
                 self.logger.debug(f'更新时间超过48小时，不处理：{result}')
                 continue
@@ -92,7 +95,8 @@ class HdyMsgSpider:
             'pageSize': '50',
             'searchTypes': '1,11',
         }
-        for i in range(1, 20):
+        for i in range(1, 50):
+            self.logger.info(f'------------------第{i}页开始处理------------------')
             params['pageNo'] = str(i)
             response = requests.post(self.url, headers=self.headers, data=params)
 
@@ -106,7 +110,10 @@ class HdyMsgSpider:
                 self.logger.error(f"返回内容：{response.text}")
                 self.logger.error(f'获取数据失败：{e}')
                 return []
-            self.logger.debug(self.counts)
+
+            self.logger.info(f'{self.counts}')
+            self.logger.info(f'------------------第{i}页处理完毕------------------')
+
             self.counts = {
                 'total': 0,  # 总数
                 'no_answer': 0,  # 未回复
@@ -174,13 +181,13 @@ class HdyMsgSpider:
                 self.counts['repeat_db'] += 1
                 self.logger.debug(f'数据库消息已存在，不处理：{unkey}')
                 return
-            self.logger.debug(f'检测到关键字【{keyword}】')
-            self.logger.debug(f"Question: {msg['mainContent']}")
-            self.logger.debug(f"Answer: {msg['attachedContent']}")
-            self.logger.debug(f"updateDate: {self.transform_timestamp_to_datetime(msg['updateDate'])}")
-            self.logger.debug(f"pubDate:, {self.transform_timestamp_to_datetime(msg['pubDate'])}")
-            self.logger.debug(f"companyShortName: {msg['companyShortName']}")
-            self.logger.debug('-----------------------------------')
+            self.logger.info(f'检测到关键字【{keyword}】')
+            self.logger.info(f"Question: {msg['mainContent']}")
+            self.logger.info(f"Answer: {msg['attachedContent']}")
+            self.logger.info(f"updateDate: {self.transform_timestamp_to_datetime(msg['updateDate'])}")
+            self.logger.info(f"pubDate:, {self.transform_timestamp_to_datetime(msg['pubDate'])}")
+            self.logger.info(f"companyShortName: {msg['companyShortName']}")
+            self.logger.info('----------------------')
             self.counts['target_new'] += 1
             msg_item = {
                 'unkey': unkey,
@@ -205,4 +212,3 @@ if __name__ == '__main__':
         spider = HdyMsgSpider()
         spider.run()
         time.sleep(300)
-

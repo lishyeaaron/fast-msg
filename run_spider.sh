@@ -1,12 +1,13 @@
 #!/bin/bash
 
-mkdir -p /var/log/fast-msg
-docker rm -f fast-msg
-docker run -d --name fast-msg-p 50084:8080 \
-  -v /www/log/fast-msg:/var/log/fast-msg \
-  -v /www/fast-msg:/www/fast-msg \
+mkdir -p /www/log/fast-msg-spider
+mkdir -p /www/fast-msg-spider
+docker rm -f fast-msg-spider
+docker run -d --name fast-msg-spider \
+  -v /www/log/fast-msg-spider:/var/log/fast-msg \
+  -v /www/fast-msg-spider:/www/fast-msg \
   --net mynetwork \
-  --name fast-msg \
+  --name fast-msg-spider \
   --restart unless-stopped \
   --memory 512m --memory-swap 512m \
   --log-driver=json-file \
@@ -18,7 +19,7 @@ docker run -d --name fast-msg-p 50084:8080 \
   --health-retries 3 \
   --health-timeout 5s \
   fast-msg-py \
-  /bin/bash -c "cd /www/fast-msg; python main.py"
+  /bin/bash -c "cd /www/fast-msg; python run_spider.py"
 
 docker logs -f fast-msg
 
