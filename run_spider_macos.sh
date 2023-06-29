@@ -4,6 +4,7 @@ mkdir -p /var/www/log/fast-msg-spider
 mkdir -p /var/www/fast-msg-spider
 docker rm -f fast-msg-spider
 docker run -d --name fast-msg-spider \
+  -e TZ=Asia/Shanghai \
   -v /var/www/log/fast-msg-spider:/var/log/fast-msg \
   -v /var/www/fast-msg-spider:/www/fast-msg \
   --net mynetwork \

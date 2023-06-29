@@ -14,10 +14,6 @@ docker run -d --name fast-msg-spider \
   --log-opt max-size=10m \
   --log-opt max-file=3 \
   --log-opt labels=app_logs \
-  --health-cmd "python -c 'import requests; requests.get(\"http://localhost:8080\")'" \
-  --health-interval 10s \
-  --health-retries 3 \
-  --health-timeout 5s \
   fast-msg-py \
   /bin/bash -c "cd /www/fast-msg; python run_spider.py"
 

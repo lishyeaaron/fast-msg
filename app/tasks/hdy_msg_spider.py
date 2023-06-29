@@ -97,17 +97,18 @@ class HdyMsgSpider:
         }
         for i in range(1, 50):
             self.logger.info(f'------------------第{i}页开始处理------------------')
-            params['pageNo'] = str(i)
-            response = requests.post(self.url, headers=self.headers, data=params)
 
             try:
+                params['pageNo'] = str(i)
+                response = requests.post(self.url, headers=self.headers, data=params)
+                self.logger.debug(f"状态码：{response.status_code}")
+                self.logger.debug(f"返回内容：{response.text}")
                 data = response.json()['results']
                 self.counts['total'] = len(data)
                 self.process_results(data)
 
             except (Exception,) as e:
-                self.logger.error(f"状态码：{response.status_code}")
-                self.logger.error(f"返回内容：{response.text}")
+
                 self.logger.error(f'获取数据失败：{e}')
                 return []
 
