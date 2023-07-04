@@ -20,7 +20,7 @@ def hdy_task():
 
 def run_schedule():
     # 每隔n分钟执行一次
-    schedule.every(3).minutes.do(hdy_task)
+    schedule.every(1).minutes.do(hdy_task)
 
     while True:
         time.sleep(3)

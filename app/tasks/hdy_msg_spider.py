@@ -95,7 +95,7 @@ class HdyMsgSpider:
             'pageSize': '50',
             'searchTypes': '11',
         }
-        for i in range(1, 50):
+        for i in range(1, 3):
             self.logger.info(f'------------------第{i}页开始处理------------------')
 
             try:

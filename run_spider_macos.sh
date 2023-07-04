@@ -2,12 +2,13 @@
 
 mkdir -p /var/www/log/fast-msg-spider
 mkdir -p /var/www/fast-msg-spider
+cp -r ../fast-msg/* /var/www/fast-msg-spider
+
 docker rm -f fast-msg-spider
 docker run -d --name fast-msg-spider \
   -e TZ=Asia/Shanghai \
   -v /var/www/log/fast-msg-spider:/var/log/fast-msg \
   -v /var/www/fast-msg-spider:/www/fast-msg \
-  --net mynetwork \
   --name fast-msg-spider \
   --restart unless-stopped \
   --memory 512m --memory-swap 512m \
